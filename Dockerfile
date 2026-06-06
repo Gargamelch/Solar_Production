@@ -1,24 +1,41 @@
 # Hugging Face Spaces — Streamlit app
 # https://huggingface.co/docs/hub/spaces-sdks-docker
+FROM continuumio/miniconda3
 
-FROM python:3.13-slim
 
-# HF Spaces runs as user 1000
+# Update system
+RUN apt-get update -y 
+RUN apt-get install nano unzip curl -y
+
+
+# THIS IS SPECIFIC TO HUGGINFACE
+# We create a new user named "user" with ID of 1000
 RUN useradd -m -u 1000 user
 USER user
+
+
+# We set two environmnet variables 
+# so that we can give ownership to all files in there afterwards
+# we also add /home/user/.local/bin in the $PATH environment variable 
+# PATH environment variable sets paths to look for installed binaries
+# We update it so that Linux knows where to look for binaries if we were to install them with "user".
 ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH
 
+
+# We set working directory to $HOME/app (<=> /home/user/app)
 WORKDIR $HOME/app
 
+
 # Install dependencies
-COPY --chown=user requirements.txt .
-RUN pip install --no-cache-dir --upgrade -r requirements.txt
+COPY requirements.txt requirements.txt
+RUN pip install -r requirements.txt
 
-# Copy app files
-COPY --chown=user . .
 
-EXPOSE 7860
+# Copy all local files to /home/user/app with "user" as owner of these files
+# Always use --chown=user when using HUGGINGFACE to avoid permission errors
+COPY --chown=user . $HOME/app
+
 
 CMD ["python", "-m", "streamlit", "run", "app.py", \
      "--server.port=7860", \
