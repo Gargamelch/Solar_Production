@@ -1,6 +1,6 @@
 # Hugging Face Spaces — Streamlit app
 # https://huggingface.co/docs/hub/spaces-sdks-docker
-FROM continuumio/miniconda3
+FROM anaconda/miniconda:26.3.2
 
 
 # Update system
