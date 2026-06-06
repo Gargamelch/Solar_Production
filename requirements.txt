@@ -1,4 +1,6 @@
 fastapi[standard]
+plotly
+streamlit
 pydantic 
 typing 
 pandas 
