@@ -10,7 +10,9 @@ RUN apt-get install nano unzip curl -y
 
 # Install dependencies
 COPY requirements.txt requirements.txt
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt && \
+    python -c "import streamlit; print('streamlit ok')" && \
+    which streamlit
 
 
 # THIS IS SPECIFIC TO HUGGINFACE
