@@ -20,9 +20,9 @@ PALETTE = ["#345fff", "#e142d5", "#ff4b9b", "#ffc352", "#f9f871",
 @st.cache_data
 def load_data():
     df = pd.read_csv("data/solar_prod.csv", parse_dates=["Date"])
-    df["Year"]  = df["Date"].dt.year
-    df["Month"] = df["Date"].dt.month
-    df["Month_name"] = df["Date"].dt.strftime("%b")
+    df["Year"]  = df["date"].dt.year
+    df["Month"] = df["date"].dt.month
+    df["Month_name"] = df["date"].dt.strftime("%b")
     return df
 
 df = load_data()
@@ -54,7 +54,7 @@ st.divider()
 st.header("📅 Yearly Production")
 
 yearly_df = (df_filtered
-             .groupby(pd.Grouper(key="Date", freq="YE"))["TWh"]
+             .groupby(pd.Grouper(key="date", freq="YE"))["TWh"]
              .sum().reset_index())
 yearly_df["Year"] = yearly_df["Date"].dt.year
 
@@ -88,10 +88,10 @@ st.divider()
 st.header("🌸 Seasonality — Monthly Production per Year")
 
 month_year_df = (df_filtered
-                 .groupby(pd.Grouper(key="Date", freq="ME"))["TWh"]
+                 .groupby(pd.Grouper(key="date", freq="ME"))["TWh"]
                  .sum().reset_index())
-month_year_df["Year"]  = month_year_df["Date"].dt.year
-month_year_df["Month"] = month_year_df["Date"].dt.month
+month_year_df["Year"]  = month_year_df["date"].dt.year
+month_year_df["Month"] = month_year_df["date"].dt.month
 
 fig_seasonal = px.line(
     month_year_df, x="Month", y="TWh", color="Year",
