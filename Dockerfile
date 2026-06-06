@@ -8,6 +8,11 @@ RUN apt-get update -y
 RUN apt-get install nano unzip curl -y
 
 
+# Install dependencies
+COPY requirements.txt requirements.txt
+RUN pip install -r requirements.txt
+
+
 # THIS IS SPECIFIC TO HUGGINFACE
 # We create a new user named "user" with ID of 1000
 RUN useradd -m -u 1000 user
@@ -25,11 +30,6 @@ ENV HOME=/home/user \
 
 # We set working directory to $HOME/app (<=> /home/user/app)
 WORKDIR $HOME/app
-
-
-# Install dependencies
-COPY requirements.txt requirements.txt
-RUN pip install -r requirements.txt
 
 
 # Copy all local files to /home/user/app with "user" as owner of these files
