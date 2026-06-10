@@ -7,7 +7,7 @@ sdk: docker
 sdk_version: 0.79.0
 app_file: app.py
 pinned: false
-license: GPL-3
+license: gpl-3.0
 short_description: Demo of an API built with FastAPI
 ---
 # To launch in a local docker container:
