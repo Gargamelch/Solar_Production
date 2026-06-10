@@ -6,7 +6,7 @@ import requests
 
 # Constants
 GEOJSON_URL = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/regions-version-simplifiee.geojson"
-DATA_PATH = "https://drive.google.com/file/d/17EN-qcAiJDqgp-ktcdWRhaHoipRnjBqo/view?usp=drive_link"
+DATA_PATH = "solar_production.csv"
 
 #   Cache Functions
 @st.cache_data(ttl=604800) # Cache for 1 week
