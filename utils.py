@@ -6,7 +6,7 @@ import requests
 
 # Constants
 GEOJSON_URL = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/regions-version-simplifiee.geojson"
-DATA_PATH = "solar_production.csv"
+DATA_PATH = "solar_prod_predictions.csv"
 
 #   Cache Functions
 @st.cache_data(ttl=604800) # Cache for 1 week
@@ -21,7 +21,7 @@ def load_geojson():
 
 @st.cache_data(ttl=604800) # Cache data for 1 week
 def load_data():
-    """Load and preprocess solar production data."""
+    """Load solar production prediction data."""
     try:
         df = pd.read_csv(DATA_PATH, parse_dates=["date"])
     except Exception as e: 

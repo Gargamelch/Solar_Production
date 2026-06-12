@@ -1,3 +1,4 @@
 .DS_Store
 secrets.sh
 solar_production.csv
+solar_prod_predictions.csv
