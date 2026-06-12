@@ -60,7 +60,6 @@ with st.sidebar:
         step=10,
     )
 
-
     # Apply Combined Filters
     df_filtered = solar_prod_df.loc[solar_prod_df['date'] == pd.Timestamp(selected_date)]
 
@@ -72,36 +71,6 @@ with st.sidebar:
         st.info('No regions selected. Showing no data.')
         df_filtered = pd.DataFrame(columns=solar_prod_df.columns) # Empty DataFrame 
 
-    # Getting a dataframe to select the day before to check to prediction for the day
-    previous_day_selected = selected_date - timedelta(days=1)
-    df_filtered_day_before = solar_prod_df.loc[solar_prod_df['date'] == pd.Timestamp(previous_day_selected)]
-
-    # Apply region filter only if regions were selected and exist
-    if selected_regions is not None and len(selected_regions) > 0:
-        df_filtered_day_before = df_filtered_day_before[df_filtered_day_before['region'].isin(selected_regions)]
-    elif selected_regions is not None and len(selected_regions) == 0:
-    # If user deselects everything, show empty or warning
-        st.info('No regions selected. Showing no data.')
-        df_filtered_day_before = pd.DataFrame(columns=solar_prod_df.columns) # Empty DataFrame 
-
-# --- Variables definition----------------------------------
-# We want to convert J/cm² into kWh/m²
-# 1 m² = 10_000 cm²
-# 1 J/cm² = 10_000 J/m²
-
-# We want to convert J into kWh
-# 1 kWh = 3.6 × 10^6 J
-# 1 J = 1 / (3.6 × 10^6) kWh
-# 1 J = 1 / 3.6e6 kWh
-
-# 1 J/cm² = 10,000 J/m²
-# 1 J/cm² = 10,000 * (1 / 3.6e6) kWh/m²
-joules_to_kwh = 10_000 * (1 / (3.6 * 10**6)) # # ~0.00278
-panel_efficiency = 0.2
-
-
-production_kwh = df_filtered['visible_radiation'].mean() * joules_to_kwh * solar_panels_surface * panel_efficiency
-predicted_production_kwh = df_filtered_day_before['visible_radiation J+1 predit'].mean() * joules_to_kwh * solar_panels_surface * panel_efficiency
 
 
 # --- Title and page config----------------------------------
@@ -146,7 +115,7 @@ if selected_date <= solar_prod_df['date'].max().date():
     with col5:
         with st.container(border=True):
             st.metric(label=f'Estimated electric production (KWh)',
-                value=f'{production_kwh:.2f}',
+                value=f'{df_filtered['production_solaire/m2(en Kwh)'].mean():.2f}',
             )
 
 
@@ -161,21 +130,21 @@ col1, col2, col3 = st.columns(3)
 with col1:
     with st.container(border=True):
         st.metric(label=f'Predicted visible radiation (J/cm²)',
-        value=f'{df_filtered_day_before['visible_radiation J+1 predit'].mean():.2f}',
+        value=f'{df_filtered['visible_radiation J+1 predit'].mean():.2f}',
         )
 
 with col2:
     with st.container(border=True):
         st.metric(label=f'Predicted electric production (KWh)',
-        value=f'{predicted_production_kwh:.2f}',
+        value=f'{df_filtered['production_solaire/m2(en Kwh) J+1 predit'].mean():.2f}',
     )
         
 with col3:
     with st.container(border=True):
         st.metric(label=f'Delta (%)',
-        value=f'{((df_filtered_day_before['visible_radiation J+1 predit'].mean()
-                - df_filtered['visible_radiation'].mean())
-                / df_filtered['visible_radiation'].mean()) * 100 :+,.2f} %',
+        value=f'{((df_filtered['production_solaire/m2(en Kwh) J+1 predit'].mean()
+                - df_filtered['production_solaire/m2(en Kwh)'].mean())
+                / df_filtered['production_solaire/m2(en Kwh)'].mean()) * 100 :+,.2f} %',
     )
         
 
