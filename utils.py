@@ -32,5 +32,6 @@ def load_data():
     df["Year"] = df["date"].dt.year
     df["Month"] = df["date"].dt.month
     df["Month_name"] = df["date"].dt.strftime("%b")
+    df['date'] = pd.to_datetime(df['date'])
     
     return df
