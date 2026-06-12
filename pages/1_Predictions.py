@@ -129,14 +129,14 @@ col1, col2, col3 = st.columns(3)
 
 with col1:
     with st.container(border=True):
-        st.metric(label=f'Predicted visible radiation (J/cm²)',
-        value=f'{df_filtered['visible_radiation J+1 predit'].mean():.2f}',
-        )
+        st.metric(label=f'Predicted electric production (KWh)',
+        value=f'{df_filtered['production_solaire/m2(en Kwh) J+1 predit'].mean():.2f}',
+    )
 
 with col2:
     with st.container(border=True):
-        st.metric(label=f'Predicted electric production (KWh)',
-        value=f'{df_filtered['production_solaire/m2(en Kwh) J+1 predit'].mean():.2f}',
+        st.metric(label=f'Surface predicted electric production (KWh)',
+        value=f'{df_filtered['production_solaire/m2(en Kwh) J+1 predit'].mean() * solar_panels_surface:.2f}',
     )
         
 with col3:
