@@ -278,7 +278,6 @@ with tab1:
         yaxis_title='Density'
     )
 
-    fig_wh.show()
     st.plotly_chart(fig_wh, width='content')
 
     st.divider()
