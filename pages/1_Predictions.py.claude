@@ -1,0 +1,239 @@
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+import streamlit as st
+
+from utils import load_data
+
+# ── CSS (same dark theme as dashboard) ────────────────────────────────────────
+st.markdown("""
+<style>
+[data-testid="stAppViewContainer"] { background:#0A0E1A; color:#E8EAF0; }
+[data-testid="stSidebar"] { background:#0F1525; border-right:1px solid #1E2640; }
+[data-testid="stSidebar"] * { color:#C5C9D6 !important; }
+h1 { font-size:1.6rem !important; font-weight:700 !important; color:#FFFFFF !important; }
+h2 { font-size:1.05rem !important; font-weight:600 !important; color:#F5A623 !important; letter-spacing:0.04em; text-transform:uppercase; }
+.kpi-card {
+    background:linear-gradient(135deg,#141929 0%,#1A2035 60%,#1E2640 100%);
+    border:1px solid #2A3150; border-radius:10px; padding:18px 20px 14px;
+    position:relative; overflow:hidden;
+}
+.kpi-card::before {
+    content:''; position:absolute; top:-30px; right:-30px; width:90px; height:90px;
+    background:radial-gradient(circle,rgba(245,166,35,0.18) 0%,transparent 70%);
+    border-radius:50%; pointer-events:none;
+}
+.kpi-label { font-size:0.68rem; font-weight:600; letter-spacing:0.08em; text-transform:uppercase; color:#7B84A0; margin-bottom:6px; }
+.kpi-value { font-size:1.7rem; font-weight:700; color:#FFFFFF; line-height:1; }
+.kpi-sub   { font-size:0.72rem; color:#F5A623; margin-top:4px; font-weight:500; }
+.section-pill {
+    display:inline-block; background:rgba(245,166,35,0.12);
+    border:1px solid rgba(245,166,35,0.3); border-radius:20px;
+    padding:3px 12px; font-size:0.7rem; font-weight:600;
+    letter-spacing:0.08em; text-transform:uppercase; color:#F5A623; margin-bottom:12px;
+}
+.future-badge {
+    display:inline-block; background:rgba(74,188,160,0.12);
+    border:1px solid rgba(74,188,160,0.3); border-radius:20px;
+    padding:3px 12px; font-size:0.7rem; font-weight:600;
+    letter-spacing:0.08em; text-transform:uppercase; color:#4ABCA0; margin-bottom:12px;
+}
+hr { border-color:#1E2640 !important; margin:1.5rem 0 !important; }
+.note-box {
+    background:#0F1525; border:1px solid #1E2640; border-left:3px solid #F5A623;
+    border-radius:6px; padding:14px 16px; font-size:0.8rem; color:#7B84A0; line-height:1.6;
+}
+.note-box strong { color:#C5C9D6; }
+[data-testid="stTabs"] button { color:#7B84A0 !important; font-size:0.82rem !important; font-weight:500 !important; border-bottom:2px solid transparent !important; padding:8px 18px !important; }
+[data-testid="stTabs"] button[aria-selected="true"] { color:#F5A623 !important; border-bottom:2px solid #F5A623 !important; background:transparent !important; }
+</style>
+""", unsafe_allow_html=True)
+
+BASE_LAYOUT = dict(
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(14,18,30,0.6)',
+    font=dict(color='#C5C9D6', family='Inter, system-ui, sans-serif', size=11),
+    margin=dict(l=12, r=12, t=36, b=12),
+    hoverlabel=dict(bgcolor='#141929', bordercolor='#2A3150', font=dict(color='#E8EAF0')),
+)
+
+def kpi(label, value, sub=''):
+    sub_html = f'<div class="kpi-sub">{sub}</div>' if sub else ''
+    return f'<div class="kpi-card"><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div>{sub_html}</div>'
+
+# ── Data ───────────────────────────────────────────────────────────────────────
+solar_prod_df = load_data()
+PROD_COL      = 'production_solaire/m2(en Kwh)'
+PRED_COL      = 'production_solaire/m2(en Kwh) J+1 predit'
+
+# ── Sidebar ────────────────────────────────────────────────────────────────────
+with st.sidebar:
+    st.markdown('<div style="margin-bottom:20px"><span style="font-size:1.4rem">🔮</span> <span style="font-weight:700;color:#F5A623;font-size:0.95rem">Solar France</span></div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.08em;color:#5C6480;margin-bottom:8px">Filters</div>', unsafe_allow_html=True)
+
+    default_date = pd.Timestamp('2026-01-01').date()
+    selected_date = st.date_input(
+        'Select a date',
+        value=default_date,
+        min_value=solar_prod_df['date'].min().date(),
+        max_value=(solar_prod_df['date'].max() + pd.Timedelta(days=2)).date()
+    )
+
+    all_regions          = sorted(solar_prod_df['region'].unique())
+    selected_region_name = st.selectbox('Region', ['All regions'] + all_regions, index=0, key='region_selectbox')
+    selected_regions     = all_regions if selected_region_name == 'All regions' else [selected_region_name]
+
+    solar_panels_surface = st.slider('Panel surface (m²)', min_value=10, max_value=10_000, value=100, step=10)
+
+    st.markdown('<hr>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.65rem;color:#3C4460;text-align:center">RTE · Météo-France · SDES</div>', unsafe_allow_html=True)
+
+# ── Filter ─────────────────────────────────────────────────────────────────────
+df_day = solar_prod_df.loc[
+    (solar_prod_df['date'] == pd.Timestamp(selected_date)) &
+    (solar_prod_df['region'].isin(selected_regions))
+]
+
+is_future    = selected_date > solar_prod_df['date'].max().date()
+has_data     = not df_day.empty
+pred_val     = df_day[PRED_COL].mean() if has_data and PRED_COL in df_day.columns else None
+actual_val   = df_day[PROD_COL].mean() if has_data and PROD_COL in df_day.columns else None
+surface_pred = pred_val * solar_panels_surface if pred_val is not None else None
+
+# ── Title ──────────────────────────────────────────────────────────────────────
+region_str = selected_region_name if selected_region_name != 'All regions' else 'All regions'
+st.markdown(f'''
+<div style="display:flex;align-items:baseline;gap:12px;margin-bottom:4px">
+    <span style="font-size:1.5rem;font-weight:700;color:#FFFFFF">Solar Prediction</span>
+    <span style="font-size:0.8rem;color:#5C6480;font-weight:400">France · {selected_date} · {region_str}</span>
+</div>
+''', unsafe_allow_html=True)
+
+if is_future:
+    st.markdown('<div class="future-badge">🔮 Future date — prediction only</div>', unsafe_allow_html=True)
+
+if not has_data:
+    st.warning('No data available for the selected date and region.')
+    st.stop()
+
+# ── Weather conditions (only for past dates) ───────────────────────────────────
+if not is_future:
+    st.markdown('<div class="section-pill">Weather conditions</div>', unsafe_allow_html=True)
+    w1, w2, w3, w4 = st.columns(4)
+    w1.markdown(kpi('Temperature', f'{df_day["daily_avg_temp"].mean():.1f} °C'), unsafe_allow_html=True)
+    w2.markdown(kpi('Rainfall', f'{df_day["rainfall"].mean():.2f} mm'), unsafe_allow_html=True)
+    w3.markdown(kpi('Wind speed', f'{df_day["daily_avg_wind_speed"].mean():.2f} m/s'), unsafe_allow_html=True)
+    w4.markdown(kpi('Visible radiation', f'{df_day["visible_radiation"].mean():.1f} J/cm²'), unsafe_allow_html=True)
+    st.markdown('<hr>', unsafe_allow_html=True)
+
+# ── Prediction KPIs ────────────────────────────────────────────────────────────
+st.markdown('<div class="section-pill">Prediction J+1</div>', unsafe_allow_html=True)
+p1, p2, p3 = st.columns(3)
+
+if pred_val is not None:
+    p1.markdown(kpi('Predicted production', f'{pred_val:.3f} KWh/m²', 'per m² of panel'), unsafe_allow_html=True)
+    p2.markdown(kpi(f'Production for {solar_panels_surface} m²', f'{surface_pred:.2f} KWh', f'{solar_panels_surface} m² × {pred_val:.3f}'), unsafe_allow_html=True)
+
+    if not is_future and actual_val is not None and actual_val > 0:
+        delta     = pred_val - actual_val
+        delta_pct = delta / actual_val * 100
+        arrow     = '▲' if delta >= 0 else '▼'
+        color     = '#4ABCA0' if delta >= 0 else '#D4605E'
+        p3.markdown(kpi('vs actual (J)', f'<span style="color:{color}">{arrow} {abs(delta_pct):.1f}%</span>',
+                        f'actual: {actual_val:.3f} KWh/m²'), unsafe_allow_html=True)
+    else:
+        p3.markdown(kpi('Actual (J)', 'n/a', 'future date'), unsafe_allow_html=True)
+
+st.markdown('<hr>', unsafe_allow_html=True)
+
+# ── Gauge chart ────────────────────────────────────────────────────────────────
+if pred_val is not None and not is_future and actual_val is not None:
+    st.markdown('<div class="section-pill">Predicted vs Actual</div>', unsafe_allow_html=True)
+    col_g1, col_g2 = st.columns(2)
+
+    max_val = max(pred_val, actual_val) * 1.3
+
+    with col_g1:
+        fig_gauge_pred = go.Figure(go.Indicator(
+            mode='gauge+number',
+            value=pred_val,
+            number=dict(suffix=' KWh/m²', font=dict(color='#F5A623', size=28)),
+            title=dict(text='Predicted (J+1)', font=dict(color='#7B84A0', size=12)),
+            gauge=dict(
+                axis=dict(range=[0, max_val], tickcolor='#2A3150', tickfont=dict(color='#7B84A0')),
+                bar=dict(color='#F5A623'),
+                bgcolor='#1A2035',
+                bordercolor='#2A3150',
+                steps=[
+                    dict(range=[0, max_val * 0.33], color='#0F1525'),
+                    dict(range=[max_val * 0.33, max_val * 0.66], color='#141929'),
+                    dict(range=[max_val * 0.66, max_val], color='#1A2035'),
+                ],
+                threshold=dict(line=dict(color='#4ABCA0', width=2), thickness=0.75, value=actual_val)
+            )
+        ))
+        fig_gauge_pred.update_layout(height=280, **BASE_LAYOUT)
+        st.plotly_chart(fig_gauge_pred, width='stretch')
+
+    with col_g2:
+        fig_gauge_act = go.Figure(go.Indicator(
+            mode='gauge+number',
+            value=actual_val,
+            number=dict(suffix=' KWh/m²', font=dict(color='#4ABCA0', size=28)),
+            title=dict(text='Actual (J)', font=dict(color='#7B84A0', size=12)),
+            gauge=dict(
+                axis=dict(range=[0, max_val], tickcolor='#2A3150', tickfont=dict(color='#7B84A0')),
+                bar=dict(color='#4ABCA0'),
+                bgcolor='#1A2035',
+                bordercolor='#2A3150',
+                steps=[
+                    dict(range=[0, max_val * 0.33], color='#0F1525'),
+                    dict(range=[max_val * 0.33, max_val * 0.66], color='#141929'),
+                    dict(range=[max_val * 0.66, max_val], color='#1A2035'),
+                ],
+                threshold=dict(line=dict(color='#F5A623', width=2), thickness=0.75, value=pred_val)
+            )
+        ))
+        fig_gauge_act.update_layout(height=280, **BASE_LAYOUT)
+        st.plotly_chart(fig_gauge_act, width='stretch')
+
+    st.markdown('<hr>', unsafe_allow_html=True)
+
+# ── Regional breakdown ─────────────────────────────────────────────────────────
+if len(selected_regions) > 1 and PRED_COL in df_day.columns:
+    st.markdown('<div class="section-pill">Regional breakdown</div>', unsafe_allow_html=True)
+    region_df = df_day.groupby('region')[[PROD_COL, PRED_COL]].mean().reset_index()
+    region_df = region_df.sort_values(PRED_COL, ascending=True)
+
+    fig_bar = go.Figure()
+    if not is_future:
+        fig_bar.add_trace(go.Bar(
+            y=region_df['region'], x=region_df[PROD_COL],
+            orientation='h', name='Actual (J)',
+            marker=dict(color='#4ABCA0', opacity=0.7)
+        ))
+    fig_bar.add_trace(go.Bar(
+        y=region_df['region'], x=region_df[PRED_COL],
+        orientation='h', name='Predicted (J+1)',
+        marker=dict(color='#F5A623', opacity=0.9)
+    ))
+    fig_bar.update_layout(
+        barmode='group', height=400,
+        xaxis_title='KWh/m²', yaxis_title='',
+        title=dict(text='Production by region', font=dict(size=13, color='#E8EAF0'), x=0),
+        legend=dict(bgcolor='rgba(0,0,0,0)', bordercolor='#2A3150', borderwidth=1,
+                    orientation='h', y=1.1),
+        **BASE_LAYOUT
+    )
+    st.plotly_chart(fig_bar, width='stretch')
+    st.markdown('<hr>', unsafe_allow_html=True)
+
+# ── Note ───────────────────────────────────────────────────────────────────────
+st.markdown('''
+<div class="note-box">
+    <strong>ℹ️ Note on production estimation</strong><br>
+    The estimated electric production is a <strong>theoretical calculation</strong>, not real-time output from a specific power plant.
+    It represents the energy generated per <strong>m² of solar panel</strong> assuming a fixed efficiency of <strong>20%</strong>.
+    Actual production may vary based on panel orientation, shading, temperature and equipment age.
+</div>
+''', unsafe_allow_html=True)

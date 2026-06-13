@@ -322,85 +322,95 @@ with tab1:
 
 # --- Second tab ----------------------------------
 with tab2:
+    st.header('🗺️ Solar Production by Region')
+    # Aggregate data by region for the selected years
+    region_prod = (
+        df_filtered
+        .groupby('region', as_index=False)
+        .agg(
+            total_TWh=('TWh', 'sum'),
+            avg_TWh=('TWh', 'mean')
+        )
+    )
+
+    # Approximate regional coordinates for map display
+    region_coords = {
+        'Auvergne-Rhône-Alpes': (45.76, 4.84),
+        'Bourgogne-Franche-Comté': (47.32, 5.04),
+        'Bretagne': (48.11, -1.68),
+        'Centre-Val de Loire': (47.90, 1.91),
+        'Centre-Val-de-Loire': (47.90, 1.91),
+        'Grand Est': (48.58, 7.75),
+        'Grand-Est': (48.58, 7.75),
+        'Hauts-de-France': (50.63, 3.06),
+        'Île-de-France': (48.85, 2.35),
+        'Ile-de-France': (48.85, 2.35),
+        'Normandie': (49.18, -0.37),
+        'Nouvelle-Aquitaine': (44.84, -0.58),
+        'Occitanie': (43.60, 1.44),
+        'Pays de la Loire': (47.22, -1.55),
+        'Pays-de-la-Loire': (47.22, -1.55),
+        "Provence-Alpes-Côte d'Azur": (43.30, 5.37),
+        'PACA': (43.30, 5.37),
+        'Corse': (42.15, 9.08)
+    }
+
+    region_prod['lat'] = region_prod['region'].map(lambda x: region_coords.get(x, (None, None))[0])
+    region_prod['lon'] = region_prod['region'].map(lambda x: region_coords.get(x, (None, None))[1])
+
+    # Keep only regions with coordinates
+    region_prod = region_prod.dropna(subset=['lat', 'lon'])
 
     # Layout with map and ranking
     map_col, rank_col = st.columns([2, 1])
     HEIGHT_2=650
 
     with map_col:
-        # production by region
-        region_prod = (
-            df_filtered
-            .groupby("region", as_index=False)
-            .agg(total_TWh=("TWh", "sum"))
-        )
-
-        fig_map = px.choropleth_mapbox(
+        fig_map = px.scatter_geo(
             region_prod,
-            geojson=geojson,
-            locations="region",
-            featureidkey="properties.nom",
-            color="total_TWh",
-            mapbox_style="carto-darkmatter",
-            center={"lat": 46.6, "lon": 2.4},
-            zoom=4.7,
-            opacity=0.75,
-            color_continuous_scale="YlOrRd",
-            labels={"total_TWh": "Production (TWh)"}
+            lat='lat',
+            lon='lon',
+            size='total_TWh',
+            color='total_TWh',
+            hover_name='region',
+            hover_data={
+                'total_TWh': ':.2f',
+                'avg_TWh': ':.4f',
+                'lat': False,
+                'lon': False
+            },
+            color_continuous_scale='YlOrRd',
+            size_max=55,
+            projection='natural earth',
+            #title='Total Solar Production by Region',
+            labels={
+                'total_TWh': 'Total production (TWh)',
+                'avg_TWh': 'Average daily production (TWh)'
+            },
+            template='plotly_dark'
         )
 
-        region_coords = {
-        "Auvergne-Rhône-Alpes": (45.76, 4.84),
-        "Bourgogne-Franche-Comté": (47.32, 5.04),
-        "Bretagne": (48.20, -2.93),
-        "Centre-Val de Loire": (47.75, 1.68),
-        "Corse": (42.15, 9.10),
-        "Grand Est": (48.70, 6.20),
-        "Hauts-de-France": (50.50, 2.80),
-        "Île-de-France": (48.85, 2.35),
-        "Normandie": (49.10, 0.20),
-        "Nouvelle-Aquitaine": (45.20, 0.20),
-        "Occitanie": (43.80, 2.20),
-        "Pays de la Loire": (47.50, -0.80),
-        "Provence-Alpes-Côte d'Azur": (43.95, 6.00),
-        }
-        
-        region_prod["lat"] = region_prod["region"].map(
-                    lambda x: region_coords.get(x, (None, None))[0]
-        )
-        region_prod["lon"] = region_prod["region"].map(
-                    lambda x: region_coords.get(x, (None, None))[1]
+        fig_map.update_geos(
+            visible=True,
+            resolution=50,
+            showcountries=True,
+            countrycolor='white',
+            showland=True,
+            landcolor='rgb(35,35,35)',
+            showocean=True,
+            oceancolor='rgb(15,20,35)',
+            lataxis_range=[41, 52],
+            lonaxis_range=[-6, 10],
+            center=dict(lat=46.5, lon=2)
         )
 
-        region_prod["label"] = (
-            region_prod["region"]
-            + "<br>"
-            + region_prod["total_TWh"].round(1).astype(str)
-            + " TWh"
-        )
-
-        fig_map.add_trace(
-            go.Scattermapbox(
-                lat=region_prod["lat"],
-                lon=region_prod["lon"],
-                mode="text",
-                text=region_prod["label"],
-                textfont=dict(
-                    size=11,
-                    color="black"
-                ),
-                hoverinfo="skip",
-                showlegend=False
-            )
-        )
         fig_map.update_layout(
-            height=650,
-            margin={"r": 0, "t": 0, "l": 0, "b": 0},
-            paper_bgcolor="#0A0E1A",
-            plot_bgcolor="#0A0E1A",
-            coloraxis_colorbar=dict(
-                title="TWh",
-                x=1.02
+                height=HEIGHT_2,
+                margin=dict(l=0, r=0, t=0, b=0),
+                coloraxis_colorbar=dict(
+                    title='TWh',
+                    len=0.7,
+                    y=0.5
             )
         )
 
@@ -425,4 +435,4 @@ with tab2:
                     max_value=float(ranking["total_TWh"].max()),
                     )
                 }
-        )   
+        )

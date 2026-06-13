@@ -72,14 +72,27 @@ with st.sidebar:
         df_filtered = pd.DataFrame(columns=solar_prod_df.columns) # Empty DataFrame 
 
 
+    is_future  = selected_date > solar_prod_df['date'].max().date()
+    has_data = not df_filtered.empty
+    predicted_val = df_filtered['production_solaire/m2(en Kwh) J+1 predit'].mean() if has_data and 'production_solaire/m2(en Kwh) J+1 predit' in df_filtered.columns else None
+    actual_val = df_filtered['production_solaire/m2(en Kwh)'].mean() if has_data and 'production_solaire/m2(en Kwh)' in df_filtered.columns else None
+
 
 # --- Title and page config----------------------------------
 st.set_page_config(page_title='🤖 Solar production prediction', layout='wide', page_icon='🤖')
 st.title(f'☀️ Solar Energy Production — France ({selected_date})')
 
+# Date warning or error message
+if is_future:
+    st.info('🔮 Future date selected — showing prediction only, no actual data available.')
+
+if not has_data:
+    st.warning('No data available for the selected date and region.')
+    st.stop()
+
 
 # --- KPI's----------------------------------
-st.header('Overview')
+st.header('Weather conditions')
 col1, col2, col3, col4, col5 = st.columns(5)
 
 # If the date selected is withing our dataframe, we show the real data
@@ -88,64 +101,82 @@ if selected_date <= solar_prod_df['date'].max().date():
     with col1:
         with st.container(border=True):
             st.metric(
-                label='Average temperature (°C)',
-                value=f'{df_filtered['daily_avg_temp'].mean():.1f}',
+                label='Average temperature',
+                value=f'{df_filtered['daily_avg_temp'].mean():.1f} °C',
                 delta='',
                 delta_color='off'
             )
 
     with col2:
         with st.container(border=True):
-            st.metric(label='Average rainfall (mm)',
-                value=f'{df_filtered['rainfall'].mean():.2f}',
+            st.metric(label='Average rainfall',
+                value=f'{df_filtered['rainfall'].mean():.2f} mm',
             )
 
     with col3:
         with st.container(border=True):
-            st.metric(label=f'Average wind speed (m/s)',
-                value=f'{df_filtered['daily_avg_wind_speed'].mean():.2f}',
+            st.metric(label=f'Average wind speed',
+                value=f'{df_filtered['daily_avg_wind_speed'].mean():.2f} m/s',
             )
 
     with col4:
         with st.container(border=True):
-            st.metric(label=f'Visible radiation (J/cm²)',
-                value=f'{df_filtered['visible_radiation'].mean():.2f}',
+            st.metric(label=f'Visible radiation',
+                value=f'{df_filtered['visible_radiation'].mean():.2f} J/cm²',
             )
 
     with col5:
         with st.container(border=True):
-            st.metric(label=f'Estimated electric production (KWh)',
-                value=f'{df_filtered['production_solaire/m2(en Kwh)'].mean():.2f}',
+            st.metric(label=f'Estimated electric production',
+                value=f'{df_filtered['production_solaire/m2(en Kwh)'].mean():.2f} KWh/m²',
             )
 
 
 st.divider()
 
-
-
 # --- Predictions----------------------------------
 st.header('Predictions')
-col1, col2, col3 = st.columns(3)
+# col1, col2 = st.columns(2)
 
-with col1:
-    with st.container(border=True):
-        st.metric(label=f'Predicted electric production (KWh)',
-        value=f'{df_filtered['production_solaire/m2(en Kwh) J+1 predit'].mean():.2f}',
-    )
+# with col1:
+with st.container(border=True):
+    st.metric(label=f'Predicted production',
+    value=f'{predicted_val:.3f} KWh/m²',
+    delta=f'{((predicted_val
+            - actual_val)
+            / actual_val) * 100 :+,.1f} %',
+    delta_color='normal',
+)
 
-with col2:
-    with st.container(border=True):
-        st.metric(label=f'Surface predicted electric production (KWh)',
-        value=f'{df_filtered['production_solaire/m2(en Kwh) J+1 predit'].mean() * solar_panels_surface:.2f}',
-    )
-        
-with col3:
-    with st.container(border=True):
-        st.metric(label=f'Delta (%)',
-        value=f'{((df_filtered['production_solaire/m2(en Kwh) J+1 predit'].mean()
-                - df_filtered['production_solaire/m2(en Kwh)'].mean())
-                / df_filtered['production_solaire/m2(en Kwh)'].mean()) * 100 :+,.2f} %',
-    )
+
+   
+# --- Gauge----------------------------------
+fig_pred = go.Figure(go.Indicator(
+        mode='gauge+number+delta',
+        value=predicted_val * solar_panels_surface,
+        delta=dict(reference=actual_val * solar_panels_surface, 
+                valueformat='.2f', 
+                suffix=' KWh/m²'),
+        number=dict(suffix=' KWh/m²', 
+                    valueformat='.2f'),
+        title=dict(text='Predicted (J+1)'),
+        gauge=dict(
+            axis=dict(range=[0, df_filtered['production_solaire/m2(en Kwh)'].max() * solar_panels_surface]),
+            bar=dict(color='#E67E22'),
+            steps=[
+                dict(range=[0, df_filtered['production_solaire/m2(en Kwh)'].max() * 0.5 * solar_panels_surface], color='lightgray'),
+                dict(range=[df_filtered['production_solaire/m2(en Kwh)'].max() * 0.5 * solar_panels_surface, df_filtered['production_solaire/m2(en Kwh)'].max()], color='whitesmoke'),
+            ],
+            threshold=dict(line=dict(color='green', width=3), 
+                        thickness=0.75, 
+                        value=actual_val * solar_panels_surface
+                        )
+        )
+    ))
+fig_pred.update_layout(height=280, 
+                    margin=dict(l=20, r=20, t=80, b=20)
+                    )
+st.plotly_chart(fig_pred, use_container_width=True)
         
 
 # --- Informations----------------------------------
