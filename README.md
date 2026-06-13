@@ -8,7 +8,7 @@ sdk_version: 0.79.0
 app_file: app.py
 pinned: false
 license: gpl-3.0
-short_description: Solar Energy Production built with scikit-learn and streamlit
+short_description: Solar Energy Production built with streamlit
 ---
 # ☀️ Solar France — Solar Energy Production Dashboard
 
