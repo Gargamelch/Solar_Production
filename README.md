@@ -2,7 +2,7 @@
 title: "Solar Energy Production Dashboard"
 emoji: ⚡
 colorFrom: yellow
-colorTo: orange
+colorTo: yellow
 sdk: docker
 app_file: app.py
 pinned: false
