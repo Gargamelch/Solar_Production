@@ -1,21 +1,21 @@
 ---
-title: "Streamlit"
+title: "Solar Energy Production Dashboard"
 emoji: ⚡
 colorFrom: yellow
-colorTo: green
+colorTo: orange
 sdk: docker
-sdk_version: 0.79.0
 app_file: app.py
 pinned: false
 license: gpl-3.0
-short_description: Solar Energy Production built with streamlit
+short_description: Solar Energy Production analysis and prediction
 ---
 # ☀️ Solar France — Solar Energy Production Dashboard
 
 An interactive dashboard for analyzing and predicting solar energy production across French regions, built with Streamlit and deployed on Hugging Face Spaces.
 
-[![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-Solar__Production-yellow)](https://huggingface.co/spaces/Gargamelch/Solar_Production)
+[![Hugging Face](https://img.shields.io/badge/🤗%20Hugging%20Face-Solar__Production-yellow)](https://gargamelch-solar-production.hf.space/)
 [![GitHub](https://img.shields.io/badge/GitHub-Solar__Production-181717?style=flat&logo=github)](https://github.com/Gargamelch/Solar_Production)
+[![Python](https://img.shields.io/badge/Python-3.13-3776AB?style=flat&logo=python&logoColor=white)](https://www.python.org/downloads/release/python-3130/)
 
 ---
 
@@ -63,8 +63,8 @@ The app includes two main pages:
 ├── 🗒️ app.py                          ← Navigation entry point
 ├── 🗒️ utils.py                        ← Data loading & caching
 ├── 📁 pages
-│   ├── 🗒️ 0_Dashboard.py              ← Production analysis dashboard
-│   └── 🗒️ 1_Predictions.py            ← ML prediction page
+│   ├── 🗒️ Dashboard.py                ← Production analysis dashboard
+│   └── 🗒️ Predictions.py              ← ML prediction page
 └── 📁 data
     ├── 📁 coordinates
     │   ├── 📄 departements-20180101.shp
@@ -88,10 +88,10 @@ The app includes two main pages:
 
 | Source | Description | Format | Coverage |
 |--------|-------------|--------|----------|
-| ⚡ [RTE eCO2mix](https://www.rte-france.com/eco2mix) | Solar electricity production by region | `.xls` (tab-separated) | 2013–2026 |
-| 🌤️ [Météo-France SIM2](https://www.meteofrance.fr) | Daily meteorological data on a 8km grid | `.csv` | 2010–2026 |
-| ☀️ [SDES](https://www.statistiques.developpement-durable.gouv.fr) | Quarterly installed solar capacity by region | `.xlsx` | 2005–2026 |
-| 🗺️ [OpenStreetMap / data.gouv.fr](https://www.data.gouv.fr) | French département boundaries (shapefile) | `.shp` | - |
+| ⚡ [RTE eCO2mix](https://www.rte-france.com/donnees-publications/eco2mix-donnees-temps-reel/telecharger-indicateurs) | Solar electricity production by region | `.xls` (tab-separated) | 2013–2026 |
+| 🌤️ [Météo-France SIM2](https://www.data.gouv.fr/datasets/donnees-changement-climatique-sim-quotidienne) | Daily meteorological data on a 8km grid | `.csv` | 2010–2026 |
+| ☀️ [SDES](https://www.statistiques.developpement-durable.gouv.fr/tableau-de-bord-solaire-photovoltaique-premier-trimestre-2026) | Quarterly installed solar capacity by region | `.xlsx` | 2005–2026 |
+| 🗺️ [OpenStreetMap / data.gouv.fr](https://www.data.gouv.fr/datasets/contours-des-departements-francais-issus-d-openstreetmap) | French département boundaries (shapefile) | `.shp` | - |
 
 ---
 
@@ -173,7 +173,36 @@ streamlit run app.py
 ---
 
 ## 🐳 Docker
+### Create a Dockerfile to run the app locally:
+```bash
+FROM anaconda/miniconda:26.3.2
 
+# Update system
+RUN apt-get update -y
+RUN apt-get install nano unzip curl -y
+
+# Install dependencies
+COPY requirements.txt requirements.txt
+RUN pip install -r requirements.txt
+
+# Set working directory
+WORKDIR /app
+
+# Copy needed local files
+COPY app.py /app/app.py
+COPY utils.py /app/utils.py
+COPY pages/ /app/pages/
+COPY .streamlit/ /app/.streamlit/
+COPY static/ /app/static/
+COPY requirements.txt /app/requirements.txt
+
+CMD ["python", "-m", "streamlit", "run", "app.py", \
+     "--server.port=8501", \
+     "--server.address=0.0.0.0", \
+     "--server.headless=true"]
+```
+
+### Then run:
 ```bash
 # Build the image
 docker build -t solar-app .

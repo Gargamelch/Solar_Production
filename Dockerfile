@@ -1,5 +1,4 @@
 # This Dockerfile is for deploying on Hugging Face
-# Use the other Dockerfile to run a local container instead
 FROM anaconda/miniconda:26.3.2
 
 
