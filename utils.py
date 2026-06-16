@@ -10,6 +10,8 @@ import re # SVG manipulation
 # General settings
 # ---------------------------------------------------
 
+APP_VERSION = '1.0.7'
+
 # Constants
 GEOJSON_URL = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/regions-version-simplifiee.geojson"
 DATA_PATH = "https://huggingface.co/buckets/Gargamelch/solar_production/resolve/solar_prod_predictions.csv?download=true"

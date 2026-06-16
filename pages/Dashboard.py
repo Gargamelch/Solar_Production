@@ -9,7 +9,8 @@ from scipy.stats import gaussian_kde
 
 # Load our custom module from utils.py
 from utils import (load_data, load_geojson, load_svg, svg_to_img, 
-                    SOLAR_COLORSCALE, PRIMARY_COLOR, SECONDARY_COLOR, DATA_PATH)
+                    SOLAR_COLORSCALE, PRIMARY_COLOR, SECONDARY_COLOR, 
+                    DATA_PATH, APP_VERSION)
 
 
 # Custom CSS to have a clean and well placed logo branding
@@ -129,7 +130,7 @@ with st.sidebar:
                 font-size: 0.75rem;
                 font-weight: 700;
                 letter-spacing: 1px;
-            ">v1.0.0</div>
+            ">{APP_VERSION}</div>
             <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" style="
                 background: #0A0E1A;
                 color: white;
@@ -409,6 +410,11 @@ with tab3:
     solar_prod_mwh_df['Year'] = solar_prod_mwh_df['date'].dt.year
     solar_prod_mwh_df.drop(columns='TWh', inplace=True)
 
+    # Calculate Daily Capacity Factor (%)
+    # Percentage of real production over theorical maximum production
+    solar_prod_mwh_df['daily_capacity_factor_pct'] = solar_prod_mwh_df.apply(
+        lambda row: (row['MWh'] / (row['capacity_power'] * 24)) * 100 if row['capacity_power'] > 0 else 0,
+        axis=1)
 
     # Aggregate to date level so we can properly compute values
     daily_prod = (
@@ -422,31 +428,31 @@ with tab3:
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         with st.container(border=True):
-            st.markdown(f"{svg_to_img('avg.svg')} **Mean**", unsafe_allow_html=True)
+            st.markdown(f"{svg_to_img('avg.svg')} **Daily Mean**", unsafe_allow_html=True)
             st.metric(label='Mean', 
-                      value=f'{daily_prod["MWh"].mean():,.2f} MWh',
+                      value=f'{daily_prod["MWh"].mean():,.0f} MWh',
                       label_visibility='hidden',
                       )
             
     with col2:
         with st.container(border=True):
-            st.markdown(f"{svg_to_img('median.svg')} **Median**", unsafe_allow_html=True)
+            st.markdown(f"{svg_to_img('median.svg')} **Daily Median**", unsafe_allow_html=True)
             st.metric(label='Median', 
-                      value=f'{daily_prod["MWh"].median():,.2f} MWh',
+                      value=f'{daily_prod["MWh"].median():,.0f} MWh',
                       label_visibility='hidden',
                       )
     with col3:
         with st.container(border=True):
-            st.markdown(f"{svg_to_img('max.svg')} **Max**", unsafe_allow_html=True)
+            st.markdown(f"{svg_to_img('max.svg')} **Daily Max**", unsafe_allow_html=True)
             st.metric(label='Max', 
-                      value=f'{daily_prod["MWh"].max():,.2f} MWh',
+                      value=f'{daily_prod["MWh"].max():,.0f} MWh',
                       label_visibility='hidden',
                       )
     with col4:
         with st.container(border=True):
-            st.markdown(f"{svg_to_img('min.svg')} **Min**", unsafe_allow_html=True)
-            st.metric(label='Min', 
-                      value=f'{daily_prod["MWh"].min():,.2f} MWh',
+            st.markdown(f"{svg_to_img('perc.svg')} **Daily Average Capacity Factor**", unsafe_allow_html=True)
+            st.metric(label='Avg', 
+                      value=f'{solar_prod_mwh_df['daily_capacity_factor_pct'].mean():,.2f} %',
                       label_visibility='hidden',
                       )
 
@@ -455,24 +461,13 @@ with tab3:
 
     col1, col2 = st.columns(2)
 
-    daily_ratio = (
-        df_filtered
-        .groupby('date')
-        .agg({'TWh': 'sum',
-            'capacity_power': 'sum'
-            })
-        .reset_index())
-    
-    daily_ratio['production_per_mw'] = (
-        daily_ratio['TWh'] / daily_ratio['capacity_power'])
-    
-    monthly_ratio = (
-        daily_ratio
-        .groupby(pd.Grouper(key='date', freq='ME'))['production_per_mw']
+
+    monthly_cf = (
+        solar_prod_mwh_df
+        .groupby(pd.Grouper(key='date', freq='ME'))['daily_capacity_factor_pct']
         .mean()
         .reset_index()
     )
-
 
     with col1:
         st.markdown(f"**Electrical Production Distributions Per Day**", unsafe_allow_html=True)
@@ -500,23 +495,33 @@ with tab3:
         st.plotly_chart(fig_wh, width='content')
 
     with col2:
-        st.markdown(f"**Capacity Factor Production**", unsafe_allow_html=True)
+        st.markdown(f"**Production Per Capacity**", unsafe_allow_html=True)
+
         # Calculate capacity factor
-
-
         fig_cf = go.Figure()
 
         fig_cf.add_trace(go.Scatter(
-            x=monthly_ratio['date'],
-            y=monthly_ratio['production_per_mw'],
+            x=monthly_cf['date'],
+            y=monthly_cf['daily_capacity_factor_pct'],
             mode='lines+markers',
             line=dict(color=PRIMARY_COLOR, width=2.5),
         ))
 
+        fig_cf.add_hline(
+            y=15, 
+            line_dash="dash", 
+            line_color=SECONDARY_COLOR, 
+            line_width=2,
+            annotation_text="Excellent",
+            annotation_font_color=SECONDARY_COLOR,
+            annotation_position="bottom right"
+)
+
+
         fig_cf.update_layout(
             title=dict(text=None),
             xaxis_title=None,
-            yaxis_title='Production Per Installed Capacity (TWh / MW)',
+            yaxis_title='Average Capacity Factor (%)',
             template='plotly_dark',
             height=HEIGHT_3,
             margin=dict(t=30, b=20, l=20, r=20),
@@ -539,8 +544,8 @@ with tab3:
             margin: 0px 0;
         ">
             <p style="margin: 0; font-size: 1rem; line-height: 1.6;">
-                {info_icon} <strong>Production Per Installed Capacity:</strong>
-                <span style="color: #aaa;">Production (TWh) / installed capacity (MW) — removes the effect of new installations, shows pure weather/efficiency trend.</span>
+                {info_icon} <strong>Capacity Factor:</strong>
+                <span style="color: #aaa;">The ratio (%) of actual energy produced to the theoretical maximum if the pannel ran at full capacity 24/7.</span>
             </p>
         </div>
     """, unsafe_allow_html=True)
