@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 # Load our custom module from utils.py
 from utils import (load_data, load_geojson, load_svg, svg_to_img, 
-                    SOLAR_COLORSCALE, PRIMARY_COLOR, SECONDARY_COLOR)
+                    SOLAR_COLORSCALE, PRIMARY_COLOR, SECONDARY_COLOR, APP_VERSION)
 
 
 # Custom CSS to have a clean and well placed logo branding
@@ -135,7 +135,7 @@ with st.sidebar:
                 font-size: 0.75rem;
                 font-weight: 700;
                 letter-spacing: 1px;
-            ">v1.0.0</div>
+            ">{APP_VERSION}</div>
             <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" style="
                 background: #0A0E1A;
                 color: white;
