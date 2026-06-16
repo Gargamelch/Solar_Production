@@ -9,7 +9,7 @@ from scipy.stats import gaussian_kde
 
 # Load our custom module from utils.py
 from utils import (load_data, load_geojson, load_svg, svg_to_img, 
-                    SOLAR_COLORSCALE, PRIMARY_COLOR, SECONDARY_COLOR)
+                    SOLAR_COLORSCALE, PRIMARY_COLOR, SECONDARY_COLOR, DATA_PATH)
 
 
 # Custom CSS to have a clean and well placed logo branding
@@ -784,10 +784,12 @@ with tab5:
 # Sixth tab
 # ---------------------------------------------------
 with tab6:
-    st.markdown(f"{svg_to_img('glass.svg')} **Data and Sources**", unsafe_allow_html=True)
+    st.markdown(f"{svg_to_img('glass.svg')} **Data Preview**", unsafe_allow_html=True)
     st.dataframe(df_filtered.head(10), width='content')
+    
+    st.markdown(f"{svg_to_img('download.svg')} [Download full dataset]({DATA_PATH})", unsafe_allow_html=True)
 
-    st.markdown(f"{svg_to_img('DB.svg')} **Datasets**", unsafe_allow_html=True)
+    st.markdown(f"{svg_to_img('DB.svg')} **Sources**", unsafe_allow_html=True)
     st.markdown("""
     | Source | Description | Link |
     |--------|-------------|------|
