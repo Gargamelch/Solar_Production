@@ -409,13 +409,22 @@ with tab3:
     solar_prod_mwh_df['Year'] = solar_prod_mwh_df['date'].dt.year
     solar_prod_mwh_df.drop(columns='TWh', inplace=True)
 
+
+    # Aggregate to date level so we can properly compute values
+    daily_prod = (
+        solar_prod_mwh_df
+        .groupby('date')['MWh']
+        .sum()
+        .reset_index()
+        )
+
     # KPIs
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         with st.container(border=True):
             st.markdown(f"{svg_to_img('avg.svg')} **Mean**", unsafe_allow_html=True)
             st.metric(label='Mean', 
-                      value=f'{solar_prod_mwh_df["MWh"].mean():,.2f} MWh',
+                      value=f'{daily_prod["MWh"].mean():,.2f} MWh',
                       label_visibility='hidden',
                       )
             
@@ -423,21 +432,21 @@ with tab3:
         with st.container(border=True):
             st.markdown(f"{svg_to_img('median.svg')} **Median**", unsafe_allow_html=True)
             st.metric(label='Median', 
-                      value=f'{solar_prod_mwh_df["MWh"].median():,.2f} MWh',
+                      value=f'{daily_prod["MWh"].median():,.2f} MWh',
                       label_visibility='hidden',
                       )
     with col3:
         with st.container(border=True):
             st.markdown(f"{svg_to_img('max.svg')} **Max**", unsafe_allow_html=True)
             st.metric(label='Max', 
-                      value=f'{solar_prod_mwh_df["MWh"].max():,.2f} MWh',
+                      value=f'{daily_prod["MWh"].max():,.2f} MWh',
                       label_visibility='hidden',
                       )
     with col4:
         with st.container(border=True):
             st.markdown(f"{svg_to_img('min.svg')} **Min**", unsafe_allow_html=True)
             st.metric(label='Min', 
-                      value=f'{solar_prod_mwh_df["MWh"].min():,.2f} MWh',
+                      value=f'{daily_prod["MWh"].min():,.2f} MWh',
                       label_visibility='hidden',
                       )
 
@@ -445,11 +454,31 @@ with tab3:
     st.divider()
 
     col1, col2 = st.columns(2)
+
+    daily_ratio = (
+        df_filtered
+        .groupby('date')
+        .agg({'TWh': 'sum',
+            'capacity_power': 'sum'
+            })
+        .reset_index())
+    
+    daily_ratio['production_per_mw'] = (
+        daily_ratio['TWh'] / daily_ratio['capacity_power'])
+    
+    monthly_ratio = (
+        daily_ratio
+        .groupby(pd.Grouper(key='date', freq='ME'))['production_per_mw']
+        .mean()
+        .reset_index()
+    )
+
+
     with col1:
         st.markdown(f"**Electrical Production Distributions Per Day**", unsafe_allow_html=True)
         # Histogram
         fig_wh = px.histogram(
-            solar_prod_mwh_df,
+            daily_prod,
             x='MWh',
             nbins=50,
             color_discrete_sequence=[PRIMARY_COLOR],
@@ -473,19 +502,13 @@ with tab3:
     with col2:
         st.markdown(f"**Capacity Factor Production**", unsafe_allow_html=True)
         # Calculate capacity factor
-        df_filtered['capacity_factor'] = df_filtered['TWh'] / df_filtered['capacity_power']
 
-        monthly_cf = (df_filtered
-            .groupby(pd.Grouper(key='date', freq='ME'))['capacity_factor']
-            .mean()
-            .reset_index()
-        )
 
         fig_cf = go.Figure()
 
         fig_cf.add_trace(go.Scatter(
-            x=monthly_cf['date'],
-            y=monthly_cf['capacity_factor'],
+            x=monthly_ratio['date'],
+            y=monthly_ratio['production_per_mw'],
             mode='lines+markers',
             line=dict(color=PRIMARY_COLOR, width=2.5),
         ))
@@ -493,7 +516,7 @@ with tab3:
         fig_cf.update_layout(
             title=dict(text=None),
             xaxis_title=None,
-            yaxis_title='Capacity Factor (TWh / MW)',
+            yaxis_title='Production Per Installed Capacity (TWh / MW)',
             template='plotly_dark',
             height=HEIGHT_3,
             margin=dict(t=30, b=20, l=20, r=20),
@@ -516,7 +539,7 @@ with tab3:
             margin: 0px 0;
         ">
             <p style="margin: 0; font-size: 1rem; line-height: 1.6;">
-                {info_icon} <strong>Capacity factor:</strong>
+                {info_icon} <strong>Production Per Installed Capacity:</strong>
                 <span style="color: #aaa;">Production (TWh) / installed capacity (MW) — removes the effect of new installations, shows pure weather/efficiency trend.</span>
             </p>
         </div>
@@ -648,6 +671,34 @@ with tab4:
 # ---------------------------------------------------
 with tab5:
     # Aggregations
+    first_date = df_filtered['date'].min()
+    latest_date = df_filtered['date'].max()
+
+    # Aggregate to date level so we can properly compute values
+    total_max_installations = (
+        df_filtered[df_filtered['date'] == latest_date]
+        ['installation_number']
+        .sum()
+        )
+    total_max_capacity = (
+        df_filtered[df_filtered['date'] == latest_date]
+        ['capacity_power']
+        .sum()
+        )
+    total_min_installations = (
+        df_filtered[df_filtered['date'] == first_date]
+        ['installation_number']
+        .sum()
+        )
+    total_min_capacity = (
+        df_filtered[df_filtered['date'] == first_date]
+        ['capacity_power']
+        .sum()
+        )
+    installation_growth = (total_max_installations - total_min_installations) * 100 / total_min_installations
+    capacity_growth = (total_max_capacity - total_min_capacity) * 100 / total_min_capacity      
+
+    
     df_filtered['Year']  = df_filtered['date'].dt.year
     df_filtered['Month'] = df_filtered['date'].dt.month
 
@@ -661,31 +712,16 @@ with tab5:
         .mean()
         .reset_index()
     )
+    growth_label = f'{min(full_years)} → {max(full_years)}'
 
     # --- KPIs ----------------------------------
-    days_per_year = df_filtered.groupby('Year')['date'].count()
-    full_years = days_per_year[days_per_year >= 365].index.tolist()
-
-    if len(full_years) >= 2:
-        first_install = df_filtered[df_filtered['Year'] == min(full_years)]['installation_number'].mean()
-        last_install  = df_filtered[df_filtered['Year'] == max(full_years)]['installation_number'].mean()
-        first_cap     = df_filtered[df_filtered['Year'] == min(full_years)]['capacity_power'].mean()
-        last_cap      = df_filtered[df_filtered['Year'] == max(full_years)]['capacity_power'].mean()
-        install_growth = ((last_install - first_install) / first_install) * 100
-        cap_growth     = ((last_cap - first_cap) / first_cap) * 100
-        growth_label   = f'{min(full_years)} → {max(full_years)}'
-    else:
-        install_growth = 0
-        cap_growth     = 0
-        growth_label   = 'n/a'
-
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         with st.container(border=True):
             st.markdown(f"{svg_to_img('panel.svg')} **Total Installations**", unsafe_allow_html=True)
             st.metric(label='Total Installations', 
-                      value=f'{df_filtered["installation_number"].mean():,.0f}',
+                      value=f'{total_max_installations:,.0f}',
                       label_visibility='hidden',
                       )
 
@@ -694,16 +730,16 @@ with tab5:
             st.markdown(f"{svg_to_img('growth.svg')} **Installation Growth {growth_label}**", unsafe_allow_html=True)
             st.metric(
                 label='Installation Growth',
-                value=f'{install_growth:+.1f}%',
+                value=f'{installation_growth:+.1f}%',
                 delta_color='normal' if len(full_years) >= 2 else 'off',
                 label_visibility='hidden',
             )
 
     with col3:
         with st.container(border=True):
-            st.markdown(f"{svg_to_img('prod.svg')} **Avg Capacity Power (MW)**", unsafe_allow_html=True)
+            st.markdown(f"{svg_to_img('prod.svg')} **Capacity Power (MW)**", unsafe_allow_html=True)
             st.metric(label='Avg Capacity Power', 
-                      value=f'{df_filtered["capacity_power"].mean():,.2f}',
+                      value=f'{total_max_capacity:,.0f}',
                       label_visibility='hidden',
                       )
 
@@ -712,7 +748,7 @@ with tab5:
             st.markdown(f"{svg_to_img('growth.svg')} **Capacity Growth (MW) {growth_label}**", unsafe_allow_html=True)
             st.metric(
                 label='Capacity Growth',
-                value=f'{cap_growth:+.1f}%',
+                value=f'{capacity_growth:+.1f}%',
                 delta_color='normal' if len(full_years) >= 2 else 'off',
                 label_visibility='hidden',
             )
@@ -722,10 +758,23 @@ with tab5:
     # Graphs
     col1, col2 = st.columns(2)
 
+    daily_install = (
+        df_filtered
+        .groupby('date')['installation_number']
+        .sum()
+        .reset_index()
+    )
+    daily_cap = (
+        df_filtered
+        .groupby('date')['capacity_power']
+        .sum()
+        .reset_index()
+    )
+
     with col1:
-        quarterly_install_df = (df_filtered
+        quarterly_install_df = (daily_install
             .groupby(pd.Grouper(key='date', freq='QE'))['installation_number']
-            .mean()
+            .max()
             .reset_index()
         )
         
@@ -752,9 +801,10 @@ with tab5:
         st.plotly_chart(fig_install, width='content', key='fig_install')
 
     with col2:
-        quaterly_cap_df = (df_filtered
+
+        quaterly_cap_df = (daily_cap
             .groupby(pd.Grouper(key='date', freq='QE'))['capacity_power']
-            .mean()
+            .max()
             .reset_index()
         )
         fig_cap = go.Figure()
