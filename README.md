@@ -20,16 +20,15 @@ An interactive dashboard for analyzing and predicting solar energy production ac
 ---
 
 ## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Project Structure](#project-structure)
-- [Data Sources](#data-sources)
-- [Dataset Description](#dataset-description)
-- [Installation](#installation)
-- [Usage](#usage)
-- [Docker](#docker)
-- [Machine Learning](#machine-learning)
+- [Overview](#-overview)
+- [Features](#-features)
+- [Project Structure](#-project-structure)
+- [Data Sources](#-data-sources)
+- [Dataset Description](#-dataset-description)
+- [Installation](#-installation)
+- [Usage](#-usage)
+- [Docker](#-docker)
+- [Machine Learning](#-machine-learning)
 
 ---
 
