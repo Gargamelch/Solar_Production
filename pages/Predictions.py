@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 
 # Load our custom module from utils.py
 from utils import (load_data, load_geojson, load_svg, svg_to_img, 
-                    SOLAR_COLORSCALE, PRIMARY_COLOR, SECONDARY_COLOR, APP_VERSION)
+                    SOLAR_COLORSCALE, PRIMARY_COLOR, SECONDARY_COLOR, 
+                    DATA_PATH, APP_VERSION)
 
 
 # Custom CSS to have a clean and well placed logo branding
@@ -285,7 +286,7 @@ if not is_future and has_actual and has_prediction: # Date available, has data, 
                     valueformat='.2f',
                     suffix=' KWh'),
         number=dict(suffix=' KWh', valueformat='.2f'),
-        title=dict(text='Predicted production'),
+        title=dict(text=f'Forecast · {solar_panels_surface} m²'),
         gauge=dict(
             axis=dict(range=[0, GLOBAL_MAX]),
             bar=dict(color=PRIMARY_COLOR, thickness=0.9),
@@ -303,7 +304,7 @@ elif has_prediction: # Date unavailable but date has prediction because of previ
         mode='gauge+number',
         value=predicted_val * solar_panels_surface,
         number=dict(suffix=' KWh', valueformat='.2f'),
-        title=dict(text='Predicted production'),
+        title=dict(text=f'Forecast · {solar_panels_surface} m²'),
         gauge=dict(
             axis=dict(range=[0, GLOBAL_MAX]),
             bar=dict(color=PRIMARY_COLOR, thickness=0.9),

@@ -10,7 +10,7 @@ import re # SVG manipulation
 # General settings
 # ---------------------------------------------------
 
-APP_VERSION = '1.0.7'
+APP_VERSION = '1.1.0'
 
 # Constants
 GEOJSON_URL = "https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/regions-version-simplifiee.geojson"

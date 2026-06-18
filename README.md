@@ -2,7 +2,7 @@
 title: "Solar Energy Production Dashboard"
 emoji: ⚡
 colorFrom: yellow
-colorTo: yellow
+colorTo: red
 sdk: docker
 app_file: app.py
 pinned: false
@@ -134,12 +134,27 @@ The final merged dataset `solar_prod_predictions.csv` contains daily data per re
 | `installation_number` | Number of connected solar installations | - | - | ☀️ SDES |
 | `capacity_power` | Installed solar capacity | MW | - | ☀️ SDES |
 | `target` | Next day visible radiation (J+1) | J/cm² | - | 🔮 Engineered |
+| **Lag features** |
 | `radiation_J1` | Visible radiation 1 day ago | J/cm² | - | 🔮 Engineered |
 | `radiation_J2` | Visible radiation 2 days ago | J/cm² | - | 🔮 Engineered |
 | `radiation_J3` | Visible radiation 3 days ago | J/cm² | - | 🔮 Engineered |
-| `day_of_year` | Day of year (1–366) | - | - | 🔮 Engineered |
+| **Rolling averages** |
+| `radiation_7d_mean` | 7-day rolling mean of visible radiation | J/cm² | - | 🔮 Engineered |
+| `temp_7d_mean` | 7-day rolling mean of temperature | °C | - | 🔮 Engineered |
+| `humidity_7d_mean` | 7-day rolling mean of relative humidity | % | - | 🔮 Engineered |
+| `rainfall_7d_sum` | 7-day rolling sum of rainfall | mm | - | 🔮 Engineered |
+| **Seasonality encoding** |
 | `day_sin` | Sine encoding of day of year | - | - | 🔮 Engineered |
 | `day_cos` | Cosine encoding of day of year | - | - | 🔮 Engineered |
+| **Radiation prediction** |
+| `visible_radiation J+1 predit` | Predicted next day visible radiation | J/cm² | - | 🔮 Engineered |
+| `radiation_J+1 reel` | Actual next day visible radiation | J/cm² | - | 🔮 Engineered |
+| `ecart prediction` | Prediction error (predicted - actual) | J/cm² | - | 🔮 Engineered |
+| **Solar production** |
+| `Kwh/m2` | Calculated from visible radiation absolute solar production per m² | KWh/m² | - | 🔮 Engineered |
+| `production_solaire/m2(en Kwh)` | Solar production per m² (actual) for solar panel at 20% efficiency | KWh/m² | - | 🔮 Engineered |
+| `Kwh/m2 prédit J+1` | Next day solar production per m² | KWh/m² | - | 🔮 Engineered |
+| `production_solaire/m2(en Kwh) J+1 predit` | Predicted solar production per m² (J+1) | KWh/m² | - | 🔮 Engineered |
 
 ---
 
@@ -225,31 +240,42 @@ The prediction model estimates **next-day solar production per m²** using a sup
 
 | Category | Features |
 |----------|----------|
-| Radiation | `visible_radiation`, `atmospheric_radiation`, `radiation_J1`, `radiation_J2`, `radiation_J3` |
-| Weather | `daily_avg_temp`, `rainfall`, `daily_avg_wind_speed`, `daily_avg_relative_humidity` |
-| Seasonality | `day_sin`, `day_cos`, `Month` |
-| Capacity | `puissance`, `nombre` |
+| Radiation | `visible_radiation`, `radiation_J1`, `radiation_J2`, `radiation_J3`, `radiation_7d_mean` |
+| Seasonality | `day_cos` |
+| Weather | `potential_evapotranspiration` |
 
 ### Pipeline
 
 ```
 Raw features → StandardScaler → Linear Regression → Predicted J+1 production
 ```
+> 💡 Training at national scale (all regions combined) improves R² by +10 points compared to per-region models — data volume is a key performance driver.
 
 ### Train / Test split
 
-| Set | Period |
-|-----|--------|
-| Train | 2020 → 2023 |
-| Test | 2024 → 2025 |
+Multiple chronological splits were evaluated to assess model stability over time:
+
+| Train | Test |
+|-------|------|
+| 2020 | 2021 |
+| 2020 → 2021 | 2022 |
+| 2020 → 2022 | 2023 |
+| 2020 → 2023 | 2024 |
+| 2020 → 2024 | 2025 |
 
 > ⚠️ Data is sorted chronologically before splitting — no random shuffling is applied to avoid data leakage from future to past.
 
 ### Evaluation metrics
 
-- **R²** — coefficient of determination
-- **MAE** — mean absolute error
-- **RMSE** — root mean squared error
+Final model — Linear Regression, 7 features:
+
+| Model | R² | MAE (J/cm²) | RMSE (J/cm²) |
+|-------|----|-------------|--------------|
+| Baseline (naïve) | 0.701 | 318.8 | 439.0 |
+| Train | 0.765 | 304.3 | 400.6 |
+| Test | 0.760 | 299.0 | 393.5 |
+
+> ✅ Test performance is nearly identical to train — no significant overfitting detected.
 
 ---
 

@@ -176,37 +176,53 @@ with tab1:
     # KPI metrics
     col1, col2, col3, col4 = st.columns(4)
 
+    # Average daily production across all regions
+    daily_agg = (df_filtered.groupby('date')
+            .agg(
+                total_TWh=('TWh', 'sum'),
+                total_capacity=('capacity_power', 'sum'))
+            .reset_index()
+    )
+
+    # Calculating KPI
+    total_production = daily_agg['total_TWh'].sum()
+    daily_avg        = daily_agg['total_TWh'].mean() * 1_000_000
+    avg_capacity     = daily_agg['total_capacity'].mean()
+
     # Count days per year to detect partial years
     days_per_year = df_filtered.groupby('Year')['date'].count()     # Count the number of days for every year
     full_years = days_per_year[days_per_year >= 365].index.tolist() # List the full years in the dataset so growth is correct
 
-    if len(full_years) >= 2:    # If there's a least 2 more full years selected we can calculate growth                                             
-        first_year_avg = df_filtered[df_filtered['Year'] == min(full_years)]['TWh'].mean()
-        last_year_avg  = df_filtered[df_filtered['Year'] == max(full_years)]['TWh'].mean()
+    if len(full_years) >= 2:    # If there's a least 2 full years selected we can calculate growth                                             
+        first_year_avg = daily_agg[daily_agg['date'].dt.year == min(full_years)]['total_TWh'].mean()
+        last_year_avg  = daily_agg[daily_agg['date'].dt.year == max(full_years)]['total_TWh'].mean()
         growth = ((last_year_avg - first_year_avg) / first_year_avg * 100)
         growth_label = f'📊 Growth ({min(full_years)} → {max(full_years)})'
     else:                       # If less than 2 full years are selected, show 0
         growth = 0
         growth_label = ' Growth (n/a)'
 
+    # Total Production
     with col1:
         with st.container(border=True):
             st.markdown(f"{svg_to_img('pred.svg')} **Total Production (TWh)**", unsafe_allow_html=True)
             st.metric(
                 label='Total Production (TWh)',
-                value=f'{df_filtered['TWh'].sum():.2f}',
+                value=f'{total_production:.2f}',
                 label_visibility='hidden',
             )
 
+    # Daily Average
     with col2:
         with st.container(border=True):
             st.markdown(f"{svg_to_img('prod.svg')} **Daily Average (MWh)**", unsafe_allow_html=True)
             st.metric(
                 label='Daily Average (MWh)',
-                value=f'{df_filtered['TWh'].mean() * 1_000_000:.2f}',
+                value=f'{daily_avg:.2f}',
                 label_visibility='hidden',
             )
 
+    # Evolution
     with col3:
         with st.container(border=True):
             st.markdown(f"{svg_to_img('charts.svg')} **Evolution (MWh) {year_min} → {year_max}**", unsafe_allow_html=True)
@@ -218,12 +234,13 @@ with tab1:
                 label_visibility='hidden',
             )
 
+    # Power Capacity    
     with col4:
         with st.container(border=True):
             st.markdown(f"{svg_to_img('panel.svg')} **Average Power Capacity**", unsafe_allow_html=True)
             st.metric(
                 label='Average Power Capacity',
-                value=f'{df_filtered['capacity_power'].mean():.2f}',
+                value=f'{avg_capacity:.2f}',
                 label_visibility='hidden',
             )
 
